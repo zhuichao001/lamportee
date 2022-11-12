@@ -45,27 +45,30 @@ public:
         return io_uring_submit(&ring); 
     }
 
-    void accpet_async(int sock_fd, ioreq* body) {
-        auto sqe = io_uring_get_sqe(&ring);
+    void accpet_async(int svr_fd, ioreq* body) {
         body->state = ioreq::ACCEPT;
-        body->fd = sock_fd;
+        body->fd = svr_fd;
         body->addr.len = sizeof(sockaddr_in);
-        io_uring_prep_accept(sqe, sock_fd, (sockaddr*)&(body->addr.ip), &(body->addr.len), 0);
+
+        io_uring_sqe* sqe = io_uring_get_sqe(&ring);
+        io_uring_prep_accept(sqe, svr_fd, (sockaddr*)&(body->addr.ip), &(body->addr.len), 0);
         io_uring_sqe_set_data(sqe, body);
     }
 
     void read_async(int client_fd, ioreq* body) {
-        auto sqe = io_uring_get_sqe(&ring);
         body->state = ioreq::READ;
         body->fd = client_fd;
+
+        io_uring_sqe* sqe = io_uring_get_sqe(&ring);
         io_uring_prep_read(sqe, client_fd, body->buf, sizeof(body->buf), -1);
         io_uring_sqe_set_data(sqe, body);
     }
 
     void write_async(int client_fd, ioreq* body) {
-        auto sqe = io_uring_get_sqe(&ring);
         body->state = ioreq::WRITE;
         body->fd = client_fd;
+
+        io_uring_sqe* sqe = io_uring_get_sqe(&ring);
         io_uring_prep_write(sqe, client_fd, body->buf, sizeof(body->buf), -1);
         io_uring_sqe_set_data(sqe, body);
     }
@@ -75,7 +78,7 @@ public:
 //implement as echo server
 class server {
     const int port_;
-    int fd_;
+    int svr_fd_;
     net_uring ring_;
 public:
     server(int port):
@@ -95,7 +98,7 @@ public:
     }
 
     int run(){
-        ring.accpet_async(sock_fd, new ioreq);
+        ring.accpet_async(svr_fd_, new ioreq);
         ring.submit();
         while (true) {
             io_uring_cqe* cqe;
@@ -115,7 +118,8 @@ public:
                     if (cqe->res > 0) { 
                         std::cout << res->buf << std::endl;
                     }
-                    ring.write_async(res->fd, res);
+                    //TODO: how to read continously
+                    ring.write_async(res->fd, res); 
                     ring.submit();
                     break;
                 case ioreq::WRITE:
