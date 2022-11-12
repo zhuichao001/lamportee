@@ -49,7 +49,7 @@ public:
         auto sqe = io_uring_get_sqe(&ring);
         body->state = ioreq::ACCEPT;
         body->fd = sock_fd;
-        body->addr.lens = sizeof(sockaddr_in);
+        body->addr.len = sizeof(sockaddr_in);
         io_uring_prep_accept(sqe, sock_fd, (sockaddr*)&(body->addr.ip), &(body->addr.len), 0);
         io_uring_sqe_set_data(sqe, body);
     }
